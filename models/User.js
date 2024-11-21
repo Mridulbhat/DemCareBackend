@@ -47,29 +47,23 @@ const userSchema = new mongoose.Schema({
             type: String,
             required: true,
         },
+        contactEmail: {
+            type: String,
+            required: true,
+        },
     }, ],
-    // location: {
-    //   address: {
-    //     type: String,
-    //     required: true,
-    //   },
-    //   city: {
-    //     type: String,
-    //     required: true,
-    //   },
-    //   state: {
-    //     type: String,
-    //     required: true,
-    //   },
-    //   zipCode: {
-    //     type: String,
-    //     required: true,
-    //   },
-    //   country: {
-    //     type: String,
-    //     required: true,
-    //   },
-    // },
+    permanentLocation: {
+        latitude: {
+            type: Number,
+            required: true,
+            default: 0.0,
+        },
+        longitude: {
+            type: Number,
+            required: true,
+            default: 0.0,
+        },
+    },
     todos: [{
         title: { type: String, required: true },
         description: { type: String },

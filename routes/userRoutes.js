@@ -1,6 +1,7 @@
 const express = require("express");
 const User = require("../models/User");
 const userAuth = require("../middleware/userAuth");
+const nodemailer = require("nodemailer");
 const router = express.Router();
 
 // Add a new to-do item
@@ -59,6 +60,26 @@ router.get("/todo/getAllTodo", userAuth, async(req, res) => {
         res.status(500).send({
             status: "Failed",
             message: "Server error, could not retrieve to-dos",
+        });
+    }
+});
+
+// Get user's location
+router.get("/location", userAuth, async(req, res) => {
+    try {
+        const user = await User.findById(req.user._id);
+        if (!user) {
+            return res
+                .status(200)
+                .send({ status: "Failed", message: "User not found" });
+        }
+
+        res.status(200).send({ status: "Successful", permanentLocation: user.permanentLocation });
+    } catch (error) {
+        console.error("Error fetching location:", error);
+        res.status(500).send({
+            status: "Failed",
+            message: "Server error, could not fetch location",
         });
     }
 });
@@ -133,5 +154,80 @@ router.delete("/todo/deleteTodo/:todoId", userAuth, async(req, res) => {
         });
     }
 });
+
+router.post("/emergency/sendAlert", userAuth, async(req, res) => {
+    const { message } = req.body;
+    console.log(message);
+
+    // Validate request
+    if (!message) {
+        return res.status(200).send({
+            status: "Failed",
+            message: "Message content is required",
+        });
+    }
+
+    try {
+        const user = await User.findById(req.user._id);
+        if (!user) {
+            return res.status(200).send({
+                status: "Failed",
+                message: "User not found",
+            });
+        }
+
+        const emergencyContacts = user.emergencyContacts; // Assuming this is an array
+        if (!emergencyContacts || emergencyContacts.length === 0) {
+            return res.status(200).send({
+                status: "Failed",
+                message: "No emergency contacts found",
+            });
+        }
+
+        // Nodemailer setup
+        const transporter = nodemailer.createTransport({
+            service: "gmail",
+            auth: {
+                user: process.env.NODEMAILER_EMAIL,
+                pass: process.env.NODEMAILER_PASSWORD,
+            },
+        });
+
+        // Send email to all emergency contacts
+        const emailPromises = emergencyContacts.map(contact => {
+            if (contact.contactEmail) {
+                const emailContent = {
+                    to: contact.contactEmail,
+                    from: process.env.NODEMAILER_EMAIL,
+                    subject: "Emergency Alert: Distance from Home",
+                    text: `
+                        Alert from ${user.name}:
+                        ${message}
+
+                        Please check on them immediately.
+                    `,
+                };
+
+                return transporter.sendMail(emailContent);
+            }
+        });
+
+        // Wait for all emails to be sent
+        await Promise.all(emailPromises);
+
+        res.status(200).send({
+            status: "Successful",
+            message: "Alert sent to emergency contacts",
+            emergencyContacts
+        });
+    } catch (error) {
+        console.error("Error in sending emergency alert:", error);
+        res.status(500).send({
+            status: "Failed",
+            message: "Server error while sending emergency alert",
+        });
+    }
+});
+
 
 module.exports = router;
